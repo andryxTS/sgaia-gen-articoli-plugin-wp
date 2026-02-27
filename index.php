@@ -2,9 +2,9 @@
 /*
 Plugin Name: Assistente Blog
 Description: Assistente redazionale by SGAIA connesso al motore noon.
-Version: 2.1
+Version: 2.5
 Author: SGAIA
-Ultima modifica: UX ottimizzata con auto-salvataggio delle preferenze (Flusso/Istanza)
+Ultima modifica: UX Migliorata (Descrizioni Versioni)
 */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -20,8 +20,9 @@ add_action('admin_init', 'sgaia_register_settings');
 function sgaia_register_settings() {
     register_setting('sgaia_settings_group', 'sgaia_n8n_api_token');
     register_setting('sgaia_settings_group', 'sgaia_noon_base_url');
-    // Registriamo le nuove opzioni per memorizzare le scelte dell'utente
+    // Opzioni di stato
     register_setting('sgaia_settings_group', 'sgaia_saved_flow_id');
+    register_setting('sgaia_settings_group', 'sgaia_saved_flow_version');
     register_setting('sgaia_settings_group', 'sgaia_saved_instance_id');
 }
 
@@ -33,6 +34,7 @@ function sgaia_render_ui() {
     
     // Recupero preferenze salvate
     $saved_flow_id = get_option('sgaia_saved_flow_id', '');
+    $saved_version = get_option('sgaia_saved_flow_version', '');
     $saved_instance_id = get_option('sgaia_saved_instance_id', '');
     ?>
     
@@ -52,16 +54,17 @@ function sgaia_render_ui() {
             .sgaia-token-box { background: #f6f7f7; padding: 20px; border-radius: 8px; border: 1px dashed #c3c4c7; text-align: left; margin-bottom: 20px; }
             .sgaia-label { display: block; font-weight: 600; margin-bottom: 8px; color: #1d2327; font-size: 13px; }
             .sgaia-input, .sgaia-select { width: 100%; padding: 10px; font-size: 14px; border: 1px solid #8c8f94; border-radius: 4px; box-sizing: border-box; margin-bottom: 15px; }
-            .sgaia-input-desc { font-size: 12px; color: #646970; margin-top: -10px; margin-bottom: 15px; display: block; }
-
+            
             /* Configurazione UI */
             .sgaia-config-area { text-align: left; background: #f0f6fc; padding: 20px; border-radius: 8px; border: 1px solid #c8d8e8; margin-bottom: 25px; }
-            .sgaia-flex-row { display: flex; gap: 10px; margin-bottom: 5px; }
-            .sgaia-flex-row input { margin-bottom: 0; flex: 1; }
+            .sgaia-flex-row { display: flex; gap: 10px; margin-bottom: 5px; align-items: flex-end; }
+            .sgaia-flex-row input, .sgaia-flex-row select { margin-bottom: 0; }
             
             .sgaia-flow-display { font-size: 13px; color: #2c3338; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #c8d8e8; padding-bottom: 10px; }
             .sgaia-flow-badge { font-family: monospace; background: #fff; border: 1px solid #c8d8e8; padding: 2px 6px; border-radius: 4px; color: #2271b1; }
             .sgaia-btn-link { background: none; border: none; color: #2271b1; text-decoration: underline; cursor: pointer; font-size: 12px; padding: 0; }
+
+            .sgaia-version-desc-box { background: #fff; border: 1px solid #dcdcde; border-left: 3px solid #2271b1; padding: 10px 12px; margin-bottom: 20px; font-size: 12px; color: #50575e; border-radius: 0 4px 4px 0; line-height: 1.4; display: none; }
 
             .sgaia-success-placeholder { display: none; margin: 20px 0; animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
             .sgaia-check-circle { width: 80px; height: 80px; background: #dff0d8; border-radius: 50%; color: #46b450; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px auto; }
@@ -94,45 +97,61 @@ function sgaia_render_ui() {
             <p class="sgaia-subtitle">Connesso al motore noon</p>
 
             <?php if (empty($api_token) || empty($base_url)): ?>
-                
                 <form method="post" action="options.php" class="sgaia-token-box" style="background: #fff8e5; border-color: #f0c33c; border-style: solid;">
                     <?php settings_fields('sgaia_settings_group'); ?>
                     <h3 style="margin: 0 0 15px 0; color: #b76e00;">⚙️ Configurazione Connessione</h3>
-                    
                     <label class="sgaia-label">URL Base App noon</label>
                     <input type="url" name="sgaia_noon_base_url" class="sgaia-input" placeholder="es. https://noon.miodominio.it" value="<?php echo esc_attr($base_url); ?>" required>
-                    
                     <label class="sgaia-label">Secret Token (API Key)</label>
                     <input type="text" name="sgaia_n8n_api_token" class="sgaia-input" placeholder="incolla qui la stringa..." value="<?php echo esc_attr($api_token); ?>" required>
-                    
                     <button type="submit" class="button button-primary" style="margin-top: 5px; width: 100%;">Salva e Procedi</button>
                 </form>
-
             <?php else: ?>
 
                 <div id="app-container">
-                    
                     <div class="sgaia-config-area">
                         
-                        <!-- Header Configurazione (Sempre visibile) -->
+                        <!-- Header Configurazione -->
                         <div class="sgaia-flow-display">
-                            <div>Flusso: <span id="display-flow-id" class="sgaia-flow-badge"><?php echo $saved_flow_id ? esc_html($saved_flow_id) : 'Nessuno'; ?></span></div>
-                            <button type="button" id="btn-toggle-edit" class="sgaia-btn-link">✏️ Modifica Flusso</button>
+                            <div style="text-align:left;">
+                                <strong>Flusso ID:</strong> <span id="display-flow-id" class="sgaia-flow-badge"><?php echo $saved_flow_id ? esc_html($saved_flow_id) : 'Nessuno'; ?></span>
+                            </div>
+                            <!-- Icona Ingranaggio per Settings Flusso -->
+                            <button type="button" id="btn-toggle-edit" class="button button-secondary" style="border:none; background:transparent;" title="Cambia Flusso">
+                                <span class="dashicons dashicons-admin-settings" style="color:#2271b1;"></span>
+                            </button>
                         </div>
 
-                        <!-- Ricerca Flusso (Nascosta se c'è già un flusso salvato) -->
+                        <!-- Ricerca Flusso -->
                         <div id="flow-search-box" style="<?php echo $saved_flow_id ? 'display:none;' : 'display:block;'; ?> margin-bottom: 15px;">
-                            <label class="sgaia-label">ID del Flusso da collegare</label>
+                            <label class="sgaia-label">ID Univoco Famiglia Flusso</label>
                             <div class="sgaia-flex-row">
-                                <input type="text" id="flow-id-input" class="sgaia-input" placeholder="es. flusso_olimpico_fase_5" value="<?php echo esc_attr($saved_flow_id); ?>">
-                                <button type="button" id="btn-fetch-instances" class="button button-secondary" style="height: 40px;">Cerca</button>
+                                <input type="text" id="flow-id-input" class="sgaia-input" placeholder="es. flusso_olimpico" value="<?php echo esc_attr($saved_flow_id); ?>">
+                                <button type="button" id="btn-fetch-instances" class="button button-secondary" style="height: 40px; margin-bottom: 15px;">Cerca</button>
                             </div>
                         </div>
                         
-                        <!-- Selettore Istanza (Sempre visibile se ci sono istanze) -->
+                        <!-- Area Selettori -->
                         <div id="instances-wrapper" style="display:none;">
-                            <label class="sgaia-label" style="margin-bottom: 4px;">Istanza di esecuzione:</label>
-                            <select id="instance-select" class="sgaia-select" style="margin-bottom: 0; font-weight: 500;"></select>
+                            
+                            <!-- 1. Selettore Versione + Titolo Lungo -->
+                            <div style="margin-bottom: 8px;">
+                                <label class="sgaia-label">Versione & Caratteristiche:</label>
+                                <select id="version-select" class="sgaia-select" style="margin-bottom: 5px;"></select>
+                            </div>
+                            
+                            <!-- Box Descrizione Completa (sotto il dropdown) -->
+                            <div id="version-desc-display" class="sgaia-version-desc-box"></div>
+
+                            <!-- 2. Selettore Istanza -->
+                            <label class="sgaia-label" style="margin-bottom: 4px;">Seleziona Istanza Operativa:</label>
+                            <div class="sgaia-flex-row" id="instance-select-row">
+                                <select id="instance-select" class="sgaia-select" style="margin-bottom: 0; font-weight: 500; flex: 1;"></select>
+                                <!-- Icona Faders per Settings Istanza -->
+                                <a href="#" id="btn-instance-options" target="_blank" class="button button-secondary" style="height: 40px; display: flex; align-items: center; justify-content: center; width: 40px;" title="Modifica Parametri Istanza">
+                                    <span class="dashicons dashicons-filter"></span>
+                                </a>
+                            </div>
                             
                             <!-- Fallback Manuale -->
                             <input type="text" id="manual-url-input" class="sgaia-input" placeholder="https://..." style="display:none; margin-top: 10px;">
@@ -142,12 +161,13 @@ function sgaia_render_ui() {
 
                     <button type="button" id="launch-btn" class="sgaia-btn-hero" disabled>
                         <span class="dashicons dashicons-controls-play" style="font-size:20px;width:20px;height:20px;"></span> 
-                        <span>AVVIA FLUSSO</span>
+                        <span>AVVIA GENERAZIONE</span>
                     </button>
 
                     <div id="status-text" class="sgaia-status">In attesa di connessione...</div>
                 </div>
 
+                <!-- Success State -->
                 <div id="success-visual" class="sgaia-success-placeholder">
                     <div class="sgaia-check-circle"><span class="dashicons dashicons-yes sgaia-check-icon"></span></div>
                     <div style="font-size: 18px; font-weight: bold; color: #2c3338;">Salvato in Bozza!</div>
@@ -184,30 +204,38 @@ function sgaia_render_ui() {
             const SIMULATION_MODE = false; 
             const BASE_URL = '<?php echo esc_js($base_url); ?>';
             const TOKEN = '<?php echo esc_js($api_token); ?>';
-            const SAVED_FLOW = '<?php echo esc_js($saved_flow_id); ?>';
-            const SAVED_INSTANCE = '<?php echo esc_js($saved_instance_id); ?>';
+            const SAVED_FLOW_ID = '<?php echo esc_js($saved_flow_id); ?>';
+            const SAVED_VERSION = parseInt('<?php echo esc_js($saved_version); ?>') || null;
+            const SAVED_INSTANCE_ID = '<?php echo esc_js($saved_instance_id); ?>';
 
             const btnFetch = document.getElementById('btn-fetch-instances');
             const btnToggleEdit = document.getElementById('btn-toggle-edit');
             const flowSearchBox = document.getElementById('flow-search-box');
-            const displayFlowId = document.getElementById('display-flow-id');
             const flowIdInput = document.getElementById('flow-id-input');
+            const displayFlowId = document.getElementById('display-flow-id');
+            
             const instancesWrapper = document.getElementById('instances-wrapper');
+            const versionSelect = document.getElementById('version-select');
+            const versionDescDisplay = document.getElementById('version-desc-display');
             const instanceSelect = document.getElementById('instance-select');
+            
             const manualUrlInput = document.getElementById('manual-url-input');
             const toggleManualBtn = document.getElementById('toggle-manual-url');
+            const btnInstanceOptions = document.getElementById('btn-instance-options');
             
             const launchBtn = document.getElementById('launch-btn');
             const statusText = document.getElementById('status-text');
             const appContainer = document.getElementById('app-container');
             
             let isManualMode = false;
-            let currentInstancesMap = {};
+            let allInstances = [];
+            let availableVersions = [];
+            let versionMetadata = {}; // Cache per descrizioni e titoli
 
-            // Auto-load se abbiamo già un flusso salvato
-            if (SAVED_FLOW && btnFetch) {
+            // Auto-load
+            if (SAVED_FLOW_ID && btnFetch) {
                 statusText.innerText = 'Sincronizzazione istanze...';
-                fetchInstances(SAVED_FLOW);
+                fetchInstances(SAVED_FLOW_ID);
             }
 
             // Toggle Edit Box
@@ -217,29 +245,18 @@ function sgaia_render_ui() {
                 });
             }
 
-            // Funzione di Salvataggio Silenzioso Preferenze via AJAX
-            function savePreferencesSilent(flowId, instanceId) {
+            // Save Prefs
+            function savePreferencesSilent(flowId, version, instanceId) {
                 jQuery.post(ajaxurl, {
                     action: 'sgaia_save_prefs_ajax',
                     security: '<?php echo wp_create_nonce("sgaia_save_nonce"); ?>',
                     flow_id: flowId,
+                    flow_version: version,
                     instance_id: instanceId
                 });
             }
 
-            // Gestione Cambio Istanza dal Dropdown
-            if (instanceSelect) {
-                instanceSelect.addEventListener('change', (e) => {
-                    const selectedId = e.target.value;
-                    const flowId = flowIdInput.value.trim();
-                    savePreferencesSilent(flowId, selectedId);
-                    
-                    // Ridisegna le option per spostare la dicitura "Salvata"
-                    renderOptions(flowId, selectedId);
-                });
-            }
-
-            // Fetch Core Function
+            // 1. Fetch Dati
             function fetchInstances(flowId) {
                 btnFetch.disabled = true;
                 btnFetch.innerText = 'Ricerca...';
@@ -255,70 +272,168 @@ function sgaia_render_ui() {
 
                     if(data.error) throw new Error(data.error);
                     
-                    currentInstancesMap = {};
-                    data.instances.forEach(inst => currentInstancesMap[inst.id] = inst);
+                    allInstances = data.instances || [];
                     
-                    // Se non c'è un'istanza salvata (o è stata eliminata da db), usa la prima
-                    let targetInstanceId = SAVED_INSTANCE;
-                    if (!currentInstancesMap[targetInstanceId] && data.instances.length > 0) {
-                        targetInstanceId = data.instances[0].id;
-                        savePreferencesSilent(flowId, targetInstanceId);
-                    }
+                    // Reset e calcolo versioni
+                    versionMetadata = {};
+                    const uniqueVer = new Set();
+                    
+                    allInstances.forEach(inst => {
+                        uniqueVer.add(inst.version);
+                        // Cache dei metadati per versione
+                        if (!versionMetadata[inst.version]) {
+                            versionMetadata[inst.version] = {
+                                title: inst.flowTitle || `Versione ${inst.version}`,
+                                desc: inst.versionDescription || 'Nessuna descrizione.'
+                            };
+                        }
+                    });
 
-                    renderOptions(flowId, targetInstanceId);
+                    availableVersions = [...uniqueVer].sort((a, b) => b - a);
 
+                    if (availableVersions.length === 0) throw new Error("Nessuna versione trovata");
+
+                    // Aggiorna UI e Label ID
+                    displayFlowId.innerText = flowId;
+                    populateVersionSelect(SAVED_VERSION || availableVersions[0]);
+                    
                     instancesWrapper.style.display = 'block';
-                    flowSearchBox.style.display = 'none'; // Nascondi la ricerca dopo il successo
-                    displayFlowId.innerText = flowId; // Aggiorna la label in alto
+                    flowSearchBox.style.display = 'none'; 
                     launchBtn.disabled = false;
-                    statusText.innerText = 'Pronto all\'uso. Clicca Avvia Flusso.';
+                    statusText.innerText = 'Pronto all\'uso.';
                 })
                 .catch(err => {
                     btnFetch.disabled = false;
                     btnFetch.innerText = 'Cerca';
-                    statusText.innerHTML = '<span style="color:red">Errore sincronizzazione: ' + err.message + '</span>';
+                    statusText.innerHTML = '<span style="color:red">Errore: ' + err.message + '</span>';
+                    instancesWrapper.style.display = 'none';
+                    launchBtn.disabled = true;
                 });
             }
 
-            function renderOptions(flowId, activeInstanceId) {
-                instanceSelect.innerHTML = '';
-                Object.values(currentInstancesMap).forEach(inst => {
-                    const option = document.createElement('option');
-                    option.value = inst.id;
+            // 2. Popola Select Versioni (con Excerpt)
+            function populateVersionSelect(targetVersion) {
+                versionSelect.innerHTML = '';
+                availableVersions.forEach(ver => {
+                    const meta = versionMetadata[ver];
+                    const opt = document.createElement('option');
+                    opt.value = ver;
                     
-                    let text = inst.isMaster ? '[MASTER] ' : '';
-                    text += inst.name;
+                    // Formattazione: vX - Titolo | Descrizione breve...
+                    const shortDesc = meta.desc.length > 50 ? meta.desc.substring(0, 50) + '...' : meta.desc;
+                    opt.textContent = `v${ver} - ${meta.title} | ${shortDesc}`;
+                    
+                    if (ver === targetVersion) opt.selected = true;
+                    versionSelect.appendChild(opt);
+                });
+                
+                // Aggiorna Box Descrizione Completa
+                updateVersionDescription(versionSelect.value);
+                
+                // Trigger popolamento istanze
+                populateInstanceSelect(versionSelect.value, SAVED_INSTANCE_ID);
+            }
+
+            // Helper per mostrare descrizione completa
+            function updateVersionDescription(version) {
+                const meta = versionMetadata[version];
+                if (meta && meta.desc) {
+                    versionDescDisplay.style.display = 'block';
+                    versionDescDisplay.innerHTML = `<strong>${meta.title}</strong><br>${meta.desc}`;
+                } else {
+                    versionDescDisplay.style.display = 'none';
+                }
+            }
+
+            // 3. Popola Select Istanze
+            function populateInstanceSelect(version, targetInstanceId) {
+                instanceSelect.innerHTML = '';
+                const ver = parseInt(version);
+                
+                const filteredInstances = allInstances.filter(i => i.version === ver);
+                
+                if (filteredInstances.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.text = "--- Nessuna istanza ---";
+                    instanceSelect.appendChild(opt);
+                    launchBtn.disabled = true;
+                    return;
+                }
+
+                launchBtn.disabled = false;
+                let foundTarget = false;
+
+                filteredInstances.forEach(inst => {
+                    const opt = document.createElement('option');
+                    opt.value = inst.id;
+                    opt.dataset.entryPoint = inst.entryPoint;
+                    
+                    let text = inst.name;
                     if (inst.isSimulationMode) text += ' (SIM)';
                     
-                    if (inst.id === activeInstanceId) {
-                        option.selected = true;
-                        text += ' ★ (Salvata)';
+                    if (inst.id === targetInstanceId) {
+                        opt.selected = true;
+                        foundTarget = true;
                     }
-                    
-                    option.textContent = text;
-                    instanceSelect.appendChild(option);
+                    opt.textContent = text;
+                    instanceSelect.appendChild(opt);
+                });
+
+                if (!foundTarget && filteredInstances.length > 0) saveState(); 
+                updateLinkButton();
+            }
+
+            function saveState() {
+                const fId = flowIdInput.value.trim();
+                const ver = versionSelect.value;
+                const iId = instanceSelect.value;
+                savePreferencesSilent(fId, ver, iId);
+                updateLinkButton();
+            }
+
+            function updateLinkButton() {
+                const iId = instanceSelect.value;
+                if (btnInstanceOptions && iId) {
+                    btnInstanceOptions.href = `${BASE_URL}/dashboard/instances/${iId}`;
+                }
+            }
+
+            // Event Listeners
+            if (btnFetch) {
+                btnFetch.addEventListener('click', () => {
+                    const fid = flowIdInput.value.trim();
+                    if(fid) fetchInstances(fid);
                 });
             }
 
-            if (btnFetch) {
-                btnFetch.addEventListener('click', function() {
-                    const flowId = flowIdInput.value.trim();
-                    if(!flowId) return alert('Inserisci un ID Flusso');
-                    fetchInstances(flowId);
+            if (versionSelect) {
+                versionSelect.addEventListener('change', (e) => {
+                    updateVersionDescription(e.target.value);
+                    populateInstanceSelect(e.target.value, null);
+                    saveState();
+                });
+            }
+
+            if (instanceSelect) {
+                instanceSelect.addEventListener('change', () => {
+                    saveState();
                 });
             }
 
             // Toggle Manuale
             if (toggleManualBtn) {
+                const instanceSelectRow = document.getElementById('instance-select-row');
                 toggleManualBtn.addEventListener('click', function(e) {
                     e.preventDefault();
                     isManualMode = !isManualMode;
                     if(isManualMode) {
-                        instanceSelect.style.display = 'none';
+                        if (instanceSelectRow) instanceSelectRow.style.display = 'none';
+                        else instanceSelect.style.display = 'none';
                         manualUrlInput.style.display = 'block';
                         toggleManualBtn.innerText = 'Torna alla selezione guidata';
                     } else {
-                        instanceSelect.style.display = 'block';
+                        if (instanceSelectRow) instanceSelectRow.style.display = 'flex';
+                        else instanceSelect.style.display = 'block';
                         manualUrlInput.style.display = 'none';
                         toggleManualBtn.innerText = 'Usa URL Webhook manuale';
                     }
@@ -358,10 +473,10 @@ function sgaia_render_ui() {
                         targetUrl = manualUrlInput.value.trim();
                         if(!targetUrl) return alert('Inserisci l\'URL');
                     } else {
-                        const selectedId = instanceSelect.value;
-                        if(!selectedId) return alert('Seleziona un\'istanza');
-                        const inst = currentInstancesMap[selectedId];
-                        targetUrl = `${BASE_URL}/api/webhook/${inst.entryPoint}`;
+                        const selectedOption = instanceSelect.options[instanceSelect.selectedIndex];
+                        if(!selectedOption) return alert('Seleziona un\'istanza');
+                        const entryPoint = selectedOption.dataset.entryPoint;
+                        targetUrl = `${BASE_URL}/api/webhook/${entryPoint}`;
                     }
 
                     updateUI('loading');
@@ -495,6 +610,7 @@ function sgaia_save_prefs() {
     if(!current_user_can('edit_posts')) wp_send_json_error();
 
     update_option('sgaia_saved_flow_id', sanitize_text_field($_POST['flow_id']));
+    update_option('sgaia_saved_flow_version', sanitize_text_field($_POST['flow_version']));
     update_option('sgaia_saved_instance_id', sanitize_text_field($_POST['instance_id']));
 
     wp_send_json_success();
