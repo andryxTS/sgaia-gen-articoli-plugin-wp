@@ -2,9 +2,9 @@
 /*
 Plugin Name: Assistente Blog
 Description: Assistente redazionale by SGAIA connesso al motore noon.
-Version: 2.5
+Version: 2.7
 Author: SGAIA
-Ultima modifica: UX Migliorata (Descrizioni Versioni)
+Ultima modifica: UX Refinement (Titoli e Icone)
 */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -20,7 +20,6 @@ add_action('admin_init', 'sgaia_register_settings');
 function sgaia_register_settings() {
     register_setting('sgaia_settings_group', 'sgaia_n8n_api_token');
     register_setting('sgaia_settings_group', 'sgaia_noon_base_url');
-    // Opzioni di stato
     register_setting('sgaia_settings_group', 'sgaia_saved_flow_id');
     register_setting('sgaia_settings_group', 'sgaia_saved_flow_version');
     register_setting('sgaia_settings_group', 'sgaia_saved_instance_id');
@@ -57,13 +56,14 @@ function sgaia_render_ui() {
             
             /* Configurazione UI */
             .sgaia-config-area { text-align: left; background: #f0f6fc; padding: 20px; border-radius: 8px; border: 1px solid #c8d8e8; margin-bottom: 25px; }
-            .sgaia-flex-row { display: flex; gap: 10px; margin-bottom: 5px; align-items: flex-end; }
+            .sgaia-flex-row { display: flex; gap: 10px; margin-bottom: 5px; align-items: center; }
             .sgaia-flex-row input, .sgaia-flex-row select { margin-bottom: 0; }
             
             .sgaia-flow-display { font-size: 13px; color: #2c3338; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #c8d8e8; padding-bottom: 10px; }
             .sgaia-flow-badge { font-family: monospace; background: #fff; border: 1px solid #c8d8e8; padding: 2px 6px; border-radius: 4px; color: #2271b1; }
             .sgaia-btn-link { background: none; border: none; color: #2271b1; text-decoration: underline; cursor: pointer; font-size: 12px; padding: 0; }
 
+            .sgaia-flow-title-main { font-size: 18px; font-weight: 700; color: #1d2327; margin: 0 0 10px 0; }
             .sgaia-version-desc-box { background: #fff; border: 1px solid #dcdcde; border-left: 3px solid #2271b1; padding: 10px 12px; margin-bottom: 20px; font-size: 12px; color: #50575e; border-radius: 0 4px 4px 0; line-height: 1.4; display: none; }
 
             .sgaia-success-placeholder { display: none; margin: 20px 0; animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
@@ -113,13 +113,8 @@ function sgaia_render_ui() {
                         
                         <!-- Header Configurazione -->
                         <div class="sgaia-flow-display">
-                            <div style="text-align:left;">
-                                <strong>Flusso ID:</strong> <span id="display-flow-id" class="sgaia-flow-badge"><?php echo $saved_flow_id ? esc_html($saved_flow_id) : 'Nessuno'; ?></span>
-                            </div>
-                            <!-- Icona Ingranaggio per Settings Flusso -->
-                            <button type="button" id="btn-toggle-edit" class="button button-secondary" style="border:none; background:transparent;" title="Cambia Flusso">
-                                <span class="dashicons dashicons-admin-settings" style="color:#2271b1;"></span>
-                            </button>
+                            <div>Flusso ID: <span id="display-flow-id" class="sgaia-flow-badge"><?php echo $saved_flow_id ? esc_html($saved_flow_id) : 'Nessuno'; ?></span></div>
+                            <button type="button" id="btn-toggle-edit" class="sgaia-btn-link">✏️ Cambia</button>
                         </div>
 
                         <!-- Ricerca Flusso -->
@@ -134,22 +129,33 @@ function sgaia_render_ui() {
                         <!-- Area Selettori -->
                         <div id="instances-wrapper" style="display:none;">
                             
-                            <!-- 1. Selettore Versione + Titolo Lungo -->
-                            <div style="margin-bottom: 8px;">
-                                <label class="sgaia-label">Versione & Caratteristiche:</label>
-                                <select id="version-select" class="sgaia-select" style="margin-bottom: 5px;"></select>
+                            <!-- TITOLO FLUSSO -->
+                            <h2 id="flow-title-display" class="sgaia-flow-title-main">Caricamento titolo...</h2>
+
+                            <!-- 1. Selettore Versione + Faders -->
+                            <div class="sgaia-flex-row" style="margin-bottom: 8px;">
+                                <div style="flex:1;">
+                                    <label class="sgaia-label">Versione:</label>
+                                    <select id="version-select" class="sgaia-select" style="margin-bottom: 0;"></select>
+                                </div>
+                                <!-- Icona Faders per Settings Flusso -->
+                                <a href="#" id="btn-flow-settings" target="_blank" class="button button-secondary" style="height: 40px; display: flex; align-items: center; justify-content: center; width: 40px; margin-top:22px;" title="Impostazioni Flusso">
+                                    <span class="dashicons dashicons-admin-generic"></span>
+                                </a>
                             </div>
                             
-                            <!-- Box Descrizione Completa (sotto il dropdown) -->
+                            <!-- Box Descrizione Completa -->
                             <div id="version-desc-display" class="sgaia-version-desc-box"></div>
 
-                            <!-- 2. Selettore Istanza -->
-                            <label class="sgaia-label" style="margin-bottom: 4px;">Seleziona Istanza Operativa:</label>
+                            <!-- 2. Selettore Istanza + Gear -->
                             <div class="sgaia-flex-row" id="instance-select-row">
-                                <select id="instance-select" class="sgaia-select" style="margin-bottom: 0; font-weight: 500; flex: 1;"></select>
-                                <!-- Icona Faders per Settings Istanza -->
-                                <a href="#" id="btn-instance-options" target="_blank" class="button button-secondary" style="height: 40px; display: flex; align-items: center; justify-content: center; width: 40px;" title="Modifica Parametri Istanza">
-                                    <span class="dashicons dashicons-filter"></span>
+                                <div style="flex:1;">
+                                    <label class="sgaia-label" style="margin-bottom: 4px;">Istanza Operativa:</label>
+                                    <select id="instance-select" class="sgaia-select" style="margin-bottom: 0; font-weight: 500;"></select>
+                                </div>
+                                <!-- Icona Ingranaggio per Settings Istanza -->
+                                <a href="#" id="btn-instance-options" target="_blank" class="button button-secondary" style="height: 40px; display: flex; align-items: center; justify-content: center; width: 40px; margin-top:22px;" title="Modifica Parametri Istanza">
+                                    <span class="dashicons dashicons-admin-settings"></span>
                                 </a>
                             </div>
                             
@@ -213,6 +219,7 @@ function sgaia_render_ui() {
             const flowSearchBox = document.getElementById('flow-search-box');
             const flowIdInput = document.getElementById('flow-id-input');
             const displayFlowId = document.getElementById('display-flow-id');
+            const flowTitleDisplay = document.getElementById('flow-title-display');
             
             const instancesWrapper = document.getElementById('instances-wrapper');
             const versionSelect = document.getElementById('version-select');
@@ -222,6 +229,7 @@ function sgaia_render_ui() {
             const manualUrlInput = document.getElementById('manual-url-input');
             const toggleManualBtn = document.getElementById('toggle-manual-url');
             const btnInstanceOptions = document.getElementById('btn-instance-options');
+            const btnFlowSettings = document.getElementById('btn-flow-settings');
             
             const launchBtn = document.getElementById('launch-btn');
             const statusText = document.getElementById('status-text');
@@ -284,7 +292,8 @@ function sgaia_render_ui() {
                         if (!versionMetadata[inst.version]) {
                             versionMetadata[inst.version] = {
                                 title: inst.flowTitle || `Versione ${inst.version}`,
-                                desc: inst.versionDescription || 'Nessuna descrizione.'
+                                desc: inst.versionDescription || 'Nessuna descrizione.',
+                                flowId: inst.flowId // Utile per il link settings
                             };
                         }
                     });
@@ -311,37 +320,52 @@ function sgaia_render_ui() {
                 });
             }
 
-            // 2. Popola Select Versioni (con Excerpt)
+            // 2. Popola Select Versioni
             function populateVersionSelect(targetVersion) {
                 versionSelect.innerHTML = '';
                 availableVersions.forEach(ver => {
-                    const meta = versionMetadata[ver];
                     const opt = document.createElement('option');
                     opt.value = ver;
                     
-                    // Formattazione: vX - Titolo | Descrizione breve...
-                    const shortDesc = meta.desc.length > 50 ? meta.desc.substring(0, 50) + '...' : meta.desc;
-                    opt.textContent = `v${ver} - ${meta.title} | ${shortDesc}`;
+                    let excerpt = '';
+                    if (versionMetadata[ver] && versionMetadata[ver].desc) {
+                        const desc = versionMetadata[ver].desc;
+                        excerpt = desc.length > 60 ? desc.substring(0, 60) + '...' : desc;
+                        excerpt = ` - ${excerpt}`;
+                    }
                     
+                    opt.textContent = `v${ver}${excerpt}`;
                     if (ver === targetVersion) opt.selected = true;
                     versionSelect.appendChild(opt);
                 });
                 
-                // Aggiorna Box Descrizione Completa
-                updateVersionDescription(versionSelect.value);
+                // Aggiorna Dettagli Versione
+                updateVersionDetails(versionSelect.value);
                 
                 // Trigger popolamento istanze
                 populateInstanceSelect(versionSelect.value, SAVED_INSTANCE_ID);
             }
 
-            // Helper per mostrare descrizione completa
-            function updateVersionDescription(version) {
+            // Helper per UI Dettagli
+            function updateVersionDetails(version) {
                 const meta = versionMetadata[version];
+                
+                // 1. Titolo Esterno
+                if (flowTitleDisplay) {
+                    flowTitleDisplay.innerText = meta ? meta.title : '';
+                }
+
+                // 2. Descrizione Box
                 if (meta && meta.desc) {
                     versionDescDisplay.style.display = 'block';
-                    versionDescDisplay.innerHTML = `<strong>${meta.title}</strong><br>${meta.desc}`;
+                    versionDescDisplay.innerHTML = meta.desc;
                 } else {
                     versionDescDisplay.style.display = 'none';
+                }
+
+                // 3. Link Settings Flusso
+                if (btnFlowSettings && meta) {
+                    btnFlowSettings.href = `${BASE_URL}/dashboard/flows/${meta.flowId}`;
                 }
             }
 
@@ -380,7 +404,7 @@ function sgaia_render_ui() {
                 });
 
                 if (!foundTarget && filteredInstances.length > 0) saveState(); 
-                updateLinkButton();
+                updateInstanceLink();
             }
 
             function saveState() {
@@ -388,10 +412,10 @@ function sgaia_render_ui() {
                 const ver = versionSelect.value;
                 const iId = instanceSelect.value;
                 savePreferencesSilent(fId, ver, iId);
-                updateLinkButton();
+                updateInstanceLink();
             }
 
-            function updateLinkButton() {
+            function updateInstanceLink() {
                 const iId = instanceSelect.value;
                 if (btnInstanceOptions && iId) {
                     btnInstanceOptions.href = `${BASE_URL}/dashboard/instances/${iId}`;
@@ -408,7 +432,7 @@ function sgaia_render_ui() {
 
             if (versionSelect) {
                 versionSelect.addEventListener('change', (e) => {
-                    updateVersionDescription(e.target.value);
+                    updateVersionDetails(e.target.value);
                     populateInstanceSelect(e.target.value, null);
                     saveState();
                 });
