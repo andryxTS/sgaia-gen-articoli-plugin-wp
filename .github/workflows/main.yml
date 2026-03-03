@@ -3,7 +3,7 @@ name: Generate Plugin Release
 on:
   push:
     branches:
-      - main # Parte in automatico quando fai push su main
+      - master
 
 jobs:
   build:
