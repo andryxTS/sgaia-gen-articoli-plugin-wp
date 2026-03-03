@@ -32,11 +32,14 @@ jobs:
       - name: Create Release and Upload
         uses: softprops/action-gh-release@v2
         with:
-          # Usa la versione estratta dal file (es. v2.7)
           tag_name: v${{ steps.get_version.outputs.plugin_version }}
           name: Release ${{ steps.get_version.outputs.plugin_version }}
+          # Aggiungiamo un corpo del messaggio per l'utente
+          body: |
+            ### 🚀 Installazione
+            Scarica il file **sgaia-gen-articoli.zip** qui sotto e caricalo su WordPress.
+            *Non utilizzare i file 'Source code' per l'installazione diretta.*
           files: sgaia-gen-articoli.zip
-          # Se il tag esiste già, aggiorna la release invece di fallire
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
