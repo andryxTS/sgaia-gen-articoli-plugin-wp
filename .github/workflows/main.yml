@@ -1,0 +1,42 @@
+name: Generate Plugin Release
+
+on:
+  push:
+    branches:
+      - main # Parte in automatico quando fai push su main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract Version from index.php
+        id: get_version
+        run: |
+          # Cerca la riga "Version:", prende il numero e pulisce gli spazi
+          VERSION=$(grep "Version:" index.php | cut -d ':' -f 2 | xargs)
+          echo "plugin_version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Prepare Plugin Directory
+        run: |
+          mkdir sgaia-gen-articoli
+          cp index.php sgaia-gen-articoli/
+
+      - name: Create Zip Archive
+        run: zip -r sgaia-gen-articoli.zip sgaia-gen-articoli
+
+      - name: Create Release and Upload
+        uses: softprops/action-gh-release@v2
+        with:
+          # Usa la versione estratta dal file (es. v2.7)
+          tag_name: v${{ steps.get_version.outputs.plugin_version }}
+          name: Release ${{ steps.get_version.outputs.plugin_version }}
+          files: sgaia-gen-articoli.zip
+          # Se il tag esiste già, aggiorna la release invece di fallire
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
