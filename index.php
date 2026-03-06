@@ -2,9 +2,9 @@
 /*
 Plugin Name: Assistente Blog
 Description: Assistente redazionale by SGAIA connesso al motore noon.
-Version: 2.7
+Version: 2.8
 Author: SGAIA
-Ultima modifica: UX Refinement (Titoli e Icone)
+Ultima modifica: Gestione sicura Schema JSON-LD FAQ (Bypass Wordfence)
 */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -620,6 +620,16 @@ function sgaia_handle_save() {
         }
     }
 
+    // Salva i dati strutturati delle FAQ se presenti (evita blocchi Wordfence salvandoli come meta)
+    if(isset($data['faq_schema']) && !empty($data['faq_schema'])) {
+        update_post_meta($post_id, '_sgaia_faq_schema', $data['faq_schema']);
+    }
+
+    // Salva i testi social generati come meta di riserva (per comodità o sviluppi futuri)
+    if(isset($data['social_text']) && !empty($data['social_text'])) {
+        update_post_meta($post_id, '_sgaia_social_text', wp_kses_post($data['social_text']));
+    }
+
     wp_send_json_success(array(
         'post_id' => $post_id,
         'edit_link' => get_edit_post_link($post_id, '&'),
@@ -638,4 +648,18 @@ function sgaia_save_prefs() {
     update_option('sgaia_saved_instance_id', sanitize_text_field($_POST['instance_id']));
 
     wp_send_json_success();
+}
+
+// 5. Frontend Rendering
+// Stampa il markup JSON-LD (FAQ) in modo sicuro nell'head degli articoli
+add_action('wp_head', 'sgaia_render_faq_schema');
+function sgaia_render_faq_schema() {
+    if (is_single()) {
+        $schema = get_post_meta(get_the_ID(), '_sgaia_faq_schema', true);
+        if (!empty($schema)) {
+            // wp_json_encode converte l'array nel formato stringa valido per JSON
+            echo "\n<!-- SGAIA FAQ Schema -->\n";
+            echo '<script type="application/ld+json">' . wp_json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . '</script>' . "\n";
+        }
+    }
 }
